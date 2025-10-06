@@ -515,7 +515,7 @@ if illumination >= 90:
 
 os.chdir('/data/TrinityLabComputer/scheduling/')
 formated_date=current_utc_date.strftime('%Y%m%d')
-plt.savefig(f'schedule.jpg')
+plt.savefig(f'schedule.png', format='png', transparent=True, dpi=600, facecolor=fig.get_facecolor())
 
 os.chdir('/data/TrinityLabComputer/scheduling/schedule_pdf/')
 next_day_utc = current_utc_date + timedelta(days=1)
