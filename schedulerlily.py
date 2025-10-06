@@ -388,7 +388,10 @@ plt.axvline(x=end_time, color='red', linestyle='--', linewidth=2, alpha=1)
 # IF START/END 2 EXIST PLOT PALE GREEN/RED LINE
 if not (start_time_2 == None and end_time_2 == None):
     plt.axvline(x=start_time_2, color='green', linestyle='--', linewidth=2, alpha=0.5)
-    plt.axvline(x=end_time_2, color='red', linestyle='--', linewidth=2, alpha=0.5)
+    # IF 2 ENDS 1 START
+    if not (end_time == end_time_2) and (start_time == start_time_2):
+        plt.axvline(x=end_time_2, color='red', linestyle='--', linewidth=2, alpha=0.5)
+
 
 
 # SHADED/HASHED REGIONS
