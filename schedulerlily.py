@@ -188,6 +188,11 @@ else:
         end_time = time_of_max_altitude #otherwise, end at moon peak
         #print(4)
         #print(end_time)
+
+# DATA QUALITY START = 32 MIN BEFORE START TIME
+data_quality_start = start_time - (timedelta(minutes=32)) #Added -32 min for data quality check start time
+
+
 if start_time == (time_of_sunset_crit) and end_time == time_of_max_altitude: #start = sunset + 1.5hr, end = moon peak: this is the block we should fix
     if (time_of_sunset_crit) < time_of_moonset < (time_of_sunrise_crit): #if moon sets between sunset and  sunrise
         start_time_2 = time_of_moonset
@@ -196,18 +201,32 @@ if start_time == (time_of_sunset_crit) and end_time == time_of_max_altitude: #st
         if (end_time_2 - start_time_2) < timedelta(minutes=95):
             print("Observation window too short.")
 
+    # IF MOON SETS AFTER SUNRISE CRIT
+    elif time_of_moonset > time_of_sunrise_crit:
+        start_time_2 = time_of_sunset_crit
+        end_time_2 = time_of_max_altitude
+        end_time = time_of_sunrise_crit
+        # IF PEAK TIME - SUNSET CRIT TIME LESS THAN 95MIN (MOON PEAKS 95 MIN AFTER SUNSET)
+        if (end_time_2 - start_time) < timedelta(minutes=95):
+            # WINDOW TOO SHORT
+            print("Observation window too short.")
+        for i in range(len(moon_altitudes) - 1):
+            if end_time_2 < sun_times[i] < end_time:
+                # SHADE TIME REGION -> SHADED = CLOSED DOOR OBS PERIOD
+                ax.axvspan(sun_times[i], sun_times[i + 1], facecolor='white', alpha=0.25, hatch = 'xx')
 
-# Improve chart labels
-start_date_str = start_date.strftime("%m-%d-%Y")
-ax.set_xlabel('Time (UTC)', fontsize=10)
-ax.set_ylabel('Elevation (degrees)', fontsize=10)
-ax.set_title('Demonstrator Operation Schedule ' + start_date_str + ' UTC', fontsize=14)
-ax.xaxis.set_major_locator(HourLocator(interval=3))
-ax.xaxis.set_major_formatter(DateFormatter('%H:%M'))
-ax.xaxis.set_minor_locator(HourLocator(interval=1))
-plt.xticks(rotation=45, ha='right')
-plt.tight_layout()
-plt.grid(True)
+# IF START AT SUNSET CRIT AND END AT SUNSRISE CRIT
+elif start_time == (time_of_sunset_crit) and end_time == time_of_sunrise_crit:
+    # IF MOON SETS B/T SUNSET AND SUNRISE
+    if (time_of_sunset_crit) < time_of_moonset < (time_of_sunrise_crit):
+        # OBS TIME STARTS AT MOONSET
+        start_time_2 = time_of_moonset
+        # OBS TIME ENDS AT SUNRISE CRIT
+        end_time_2 = time_of_sunrise_crit
+        # IF CRIT SUNRISE TIME - MOONSET TIME LESS THAN 95MIN (MOON SETS 95 MIN BEFORE SUNRISE)
+        if (end_time - start_time_2) < timedelta(minutes=95):
+            # WINDOW TOO SHORT
+            print("Observation window too short.")
 
 
 # Adding sources of interest
@@ -328,74 +347,6 @@ print("Times have been written to eon_times.txt") #Changed
 
 plt.xlim(min(sun_times), min(sun_times) + timedelta(hours=24))
 
-##################################################################################################################################
-
-#idk if this is the right place
-# door open/door closed gradient, dtermine if start night with door open or closed
-
-# from check.It.py : see if can call this script
-
-def get_endtime(time_of_sunrise_crit, time_of_sunset_crit, time_of_moonset, time_of_max_altitude):
-    start_time = None
-    end_time = None
-    start_time_2 = None
-    end_time_2 = None
-    if not ((time_of_sunset_crit) < time_of_moonset < (time_of_sunrise_crit)): #if sun doesn't set before moon
-        start_time = (time_of_sunset_crit) #start time is sunset + 1.5hr
-        #print(1)
-    else:
-        start_time = time_of_moonset #otherwise, start at moonset, all good here.
-        #print(2)
-        #print(start_time)
-
-    if not ((time_of_sunset_crit) < time_of_max_altitude < (time_of_sunrise_crit)): #if moon peak not between sunrise and sunset
-        end_time = (time_of_sunrise_crit) #end at sunrise - 1.5hr
-        #print(3)
-    else:
-            if start_time > time_of_max_altitude: #if ending at sunrise - 1.5hr
-                end_time = time_of_sunrise_crit
-            else:
-                end_time = time_of_max_altitude #otherwise, end at moon peak
-            #print(4)
-            #print(end_time)
-    if start_time == (time_of_sunset_crit) and end_time == time_of_max_altitude: #start = sunset + 1.5hr, end = moon peak: this is the block we should fix
-        #print(5)
-        if (time_of_sunset_crit) < time_of_moonset < (time_of_sunrise_crit): #if moon sets between sunset and  sunrise
-            start_time_2 = time_of_moonset
-            end_time_2 = (time_of_sunrise_crit) #return these instead?
-            if (end_time_2 - start_time_2) < timedelta(minutes=95):
-                print("Observation window too short.")
-            return start_time_2, end_time_2 #NEW
-    #print(start_time)
-    #print(end_time)
-    return start_time, end_time
-start_time, endtime = get_endtime(time_of_sunrise_crit, time_of_sunset_crit, time_of_moonset, time_of_max_altitude)
-print("\033[1mDoor Open time (UTC):\033[1m", start_time.strftime("%Y-%m-%d %H:%M"))
-print("\033[1mDoor Closed Cutoff time (UTC):\033[1m", endtime.strftime("%Y-%m-%d %H:%M"))
-
-#from getting_started.py : again see if can call
-
-safe_light=clt.check_current_time() # one bad condition this will break
-
-# if the time check value has changed since the last one the door needs to move if 
-# is has not already - this is easy for door closed it will just send the commmend again 
-# 2>1
-if safe_light > prior_time_check and door_status != 'never':
-    # open the door 
-	lets.communicate('Monitor: Time Condition safe for opening the door')
-	ssh.door('up')
-	door_status='o'
-	lets.communicate('Door is UP')
-			
-# 1<2
-if safe_light < prior_time_check and door_status != 'never':
-	# close the door
-	lets.communicate('Monitor: Time Condition required door closing')
-	ssh.door('down')
-	door_status='c'
-	lets.communicate('Door is Down')
-
-#################################################################################################################################
 
 def moon_illumination(latitude, longitude, start_date):
     observer = ephem.Observer()
