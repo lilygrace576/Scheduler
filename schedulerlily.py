@@ -176,9 +176,7 @@ df_sorted = df.apply(lambda x: pd.to_datetime(x).sort_values(), axis=1)
 if not ((time_of_sunset_crit) < time_of_moonset < (time_of_sunrise_crit)): #if sun doesn't set before moon
     start_time = (time_of_sunset_crit) #start time is sunset + 1.5hr
 else:
-    start_time = time_of_moonset #otherwise, start at moonset, all good here.
-    #print(2)
-    #print(start_time)
+    start_time = (time_of_sunset_crit)
 
 if not ((time_of_sunset_crit) < time_of_max_altitude < (time_of_sunrise_crit)): #if moon peak not between sunrise and sunset
     end_time = (time_of_sunrise_crit) #end at sunrise - 1.5hr
@@ -193,17 +191,10 @@ else:
 if start_time == (time_of_sunset_crit) and end_time == time_of_max_altitude: #start = sunset + 1.5hr, end = moon peak: this is the block we should fix
     if (time_of_sunset_crit) < time_of_moonset < (time_of_sunrise_crit): #if moon sets between sunset and  sunrise
         start_time_2 = time_of_moonset
-        end_time_2 = (time_of_sunrise_crit) #return these instead?
+        end_time = (time_of_sunrise_crit)
+        end_time_2 = time_of_max_altitude
         if (end_time_2 - start_time_2) < timedelta(minutes=95):
             print("Observation window too short.")
-        #return start_time_2, end_time_2 #NEW
-    #print(start_time)
-    #print(end_time)
-    #return start_time, end_time
-
-if start_time_2 and end_time_2:
-    start_time = start_time_2
-    end_time = end_time_2
 
 
 # Improve chart labels
@@ -308,9 +299,9 @@ logging.info(f"Sunset Time: {time_of_sunset.strftime('%m-%d %H:%M')}")
 logging.info(f"\033[1mStart Time: {start_time.strftime('%m-%d %H:%M')}\033[0m")   # "\033[1m" and "\033[0m" make the text bold
 logging.info(f"\033[1mEnd Time: {end_time.strftime('%m-%d %H:%M')}\033[0m")   # "\033[1m" and "\033[0m" make the text bold
 
-#if not (start_time_2 == None and end_time_2 == None):
-#    logging.info(f"\033[1mStart Time 2: {start_time_2.strftime('%m-%d %H:%M')}\033[0m")   # "\033[1m" and "\033[0m" make the text bold
-#    logging.info(f"\033[1mEnd Time 2: {end_time_2.strftime('%m-%d %H:%M')}\033[0m")   # "\033[1m" and "\033[0m" make the text bold
+if not (start_time_2 == None and end_time_2 == None):
+   logging.info(f"\033[1mStart Time 2: {start_time_2.strftime('%m-%d %H:%M')}\033[0m")   # "\033[1m" and "\033[0m" make the text bold
+   logging.info(f"\033[1mEnd Time 2: {end_time_2.strftime('%m-%d %H:%M')}\033[0m")   # "\033[1m" and "\033[0m" make the text bold
 
 
 # Write to text file for trinity.py
@@ -319,17 +310,15 @@ with open("eon_times.txt", "w") as file: #Changed
     file.write(f"Moonset Time: {time_of_moonset}\n")
     file.write(f"Sunrise Time: {time_of_sunrise}\n")
     file.write(f"Sunset Time: {time_of_sunset}\n")
-    '''
+    
     if not (start_time_2 == None and end_time_2 == None):
         if start_date < end_time:
             file.write(f"Start Time: {start_time.strftime}\n")
             file.write(f"End Time: {end_time}\n")
         elif start_time_2 < (time_of_sunrise_crit) and start_time_2 > (time_of_sunset_crit):
             file.write(f"Start Time 2: {start_time_2}\n")
-            file.write(f"End Time 2: {end_time_2}\n")
-    '''
-    data_quality_start = start_time - (timedelta(minutes=32)) #Added -32 min for data quality check start time
-    #file.write(f"Data Quality Start Time: {data_quality_start.strftime('%Y-%m-%d %H:%M:%S')}\n")
+            file.write(f"End Time 2: {end_time_2}\n")  
+
     file.write(f"Start Time: {start_time.strftime('%Y-%m-%d %H:%M:%S')}\n") #Changed
     file.write(f"End Time: {end_time}\n")
 
