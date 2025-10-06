@@ -96,7 +96,7 @@ def sun_position_over_time(latitude, longitude, start_date, interval_minutes):
     time_of_sunrise = sun_times[sunrise_index] if sunrise_index is not None else None
 
     # Finding the time of critical sunrise time (positive slope crossing y=-15)
-    sunrise_crit_index = next((i for i in range(1, len(sun_times)) if sun_altitudes[i] > -18 and sun_altitudes[i - 1] <= -18), None)
+    sunrise_crit_index = next((i for i in range(1, len(sun_times)) if sun_altitudes[i] > -15 and sun_altitudes[i - 1] <= -15), None)
     time_of_sunrise_crit = sun_times[sunrise_crit_index] if sunrise_crit_index is not None else None
 
     # Find the time of sunset (negative slope crossing y=0)
@@ -168,14 +168,13 @@ end_time_2 = None
 
 pd.set_option('display.max_rows', None)
 pd.set_option('display.max_columns', None)
-data = {'Moonrise Time': time_of_moonrise, 'Moonset Time': time_of_moonset, 'Moonmax Time': time_of_max_altitude, 'Sunrise Crit Time': (time_of_sunrise - timedelta(minutes=90)), 'Sunset Crit Time': (time_of_sunset + timedelta(minutes=90))}
+data = {'Moonrise Time': time_of_moonrise, 'Moonset Time': time_of_moonset, 'Moonmax Time': time_of_max_altitude, 'Sunrise Crit Time': (time_of_sunrise_crit), 'Sunset Crit Time': (time_of_sunset_crit)}
 index = ['Times']
 df = pd.DataFrame(data, index=index)
 df_sorted = df.apply(lambda x: pd.to_datetime(x).sort_values(), axis=1)
 
 if not ((time_of_sunset_crit) < time_of_moonset < (time_of_sunrise_crit)): #if sun doesn't set before moon
     start_time = (time_of_sunset_crit) #start time is sunset + 1.5hr
-    #print(1)
 else:
     start_time = time_of_moonset #otherwise, start at moonset, all good here.
     #print(2)
@@ -192,7 +191,6 @@ else:
         #print(4)
         #print(end_time)
 if start_time == (time_of_sunset_crit) and end_time == time_of_max_altitude: #start = sunset + 1.5hr, end = moon peak: this is the block we should fix
-    #print(5)
     if (time_of_sunset_crit) < time_of_moonset < (time_of_sunrise_crit): #if moon sets between sunset and  sunrise
         start_time_2 = time_of_moonset
         end_time_2 = (time_of_sunrise_crit) #return these instead?
@@ -326,7 +324,7 @@ with open("eon_times.txt", "w") as file: #Changed
         if start_date < end_time:
             file.write(f"Start Time: {start_time.strftime}\n")
             file.write(f"End Time: {end_time}\n")
-        elif start_time_2 < (time_of_sunrise - timedelta(minutes=90)) and start_time_2 > (time_of_sunset + timedelta(minutes=90)):
+        elif start_time_2 < (time_of_sunrise_crit) and start_time_2 > (time_of_sunset_crit):
             file.write(f"Start Time 2: {start_time_2}\n")
             file.write(f"End Time 2: {end_time_2}\n")
     '''
@@ -423,78 +421,156 @@ def moon_illumination(latitude, longitude, start_date):
 
 illumination = moon_illumination(latitude, longitude, start_date)
 
+#CHART LABELS
+# Improve chart labels
+start_date_str = start_date.strftime("%m-%d-%Y")
+fig.patch.set_facecolor('white')
+ax.set_facecolor('white')
+ax.set_xlabel('Time (UTC)', fontsize=10)
+ax.set_ylabel('Elevation (degrees)', fontsize=10)
+ax.set_title('Demonstrator Operation Schedule ' + start_date_str + ' UTC', fontsize=14)
+# ax.set_title('Demonstrator Operation Schedule ' + start_date_str + f' UTC\nMoonphase: {illumination}%', fontsize=14)
+ax.xaxis.set_major_locator(HourLocator(interval=3))
+ax.xaxis.set_major_formatter(DateFormatter('%H:%M'))
+ax.xaxis.set_minor_locator(HourLocator(interval=1))
+plt.xticks(rotation=45, ha='right')
+plt.tight_layout()
+plt.grid(True)
+
+# PLOT AND LEGEND
+ 
+# PLOT OBS START TIME LINE, OBS END TIME LINE, AND EXTRIGS DATA QUALITY START TIME LINE
+plt.axvline(x=start_time, color='green', linestyle='--', linewidth=2, alpha=1)
+plt.axvline(x=data_quality_start, color='darkslateblue', linestyle='--', linewidth=1, alpha=1)
+plt.axvline(x=end_time, color='red', linestyle='--', linewidth=2, alpha=1)
+
+
+# IF START/END 2 EXIST PLOT PALE GREEN/RED LINE
+if not (start_time_2 == None and end_time_2 == None):
+    plt.axvline(x=start_time_2, color='green', linestyle='--', linewidth=2, alpha=0.5)
+    plt.axvline(x=end_time_2, color='red', linestyle='--', linewidth=2, alpha=0.5)
+
+
+# SHADED/HASHED REGIONS
+
+# ENTIRE OBS PERIOD
+for i in range(len(moon_altitudes) - 1):
+    # IF SUN TIME ATFER START TIME
+    if start_time < sun_times[i] < end_time:
+        # SHADE REGION -> GREY SHADED = OBS PERIOD
+        ax.axvspan(sun_times[i], sun_times[i + 1], color='grey', alpha=0.05)
+
+# DOOR UP OBS PERIOD 
+for i in range(len(moon_altitudes) - 1):
+    # IF START/END 2 EXIST
+    if not (start_time_2 == None and end_time_2 ==None):
+        # IF 2 STARTS AND ENDS
+        if not (end_time == end_time_2 and start_time == start_time_2):
+            # IF TIME SAFE AND AFTER START 2
+            if not (sun_times[i] in time_list) and sun_times[i] > start_time_2:
+                ax.axvspan(sun_times[i], sun_times[i + 1], color='grey', alpha=0.1)
+        # IF 2 STARTS 1 END
+        elif not (start_time == start_time_2) and (end_time == end_time_2):
+            # IF SUN TIME SAFE (NOT IN DANGEROUS LIGHT LEVELS TIME_LIST) AND AFTER START TIME 2
+            if not (sun_times[i] in time_list) and sun_times[i] > start_time_2:
+                # HASH THAT TIME REGION -> // = SAFE OBS PERIOD W DOOR UP
+                ax.axvspan(sun_times[i], sun_times[i + 1], color='grey', alpha=0.1)
+        # IF 2 ENDS 1 START
+        elif not (end_time == end_time_2) and (start_time == start_time_2):
+            # IF TIME SAFE AND B/T START AND END 2
+            if not (sun_times[i] in time_list) and start_time < sun_times[i] < end_time_2:
+                ax.axvspan(sun_times[i], sun_times[i + 1], color='grey', alpha=0.1)
+
+    # IF NO START 2
+    else:
+        # IF SUN TIME SAFE (NOT IN DANGEROUS LIGHT LEVELS TIME_LIST) AND AFTER START TIME
+        if not (sun_times[i] in time_list) and sun_times[i] > start_time:
+            # HASH THAT TIME REGION -> // = SAFE OBS PERIOD W DOOR UP
+            ax.axvspan(sun_times[i], sun_times[i + 1], color='grey', alpha=0.05)
+
+# // DOOR CLOSED OBS PEROIOD 
+for i in range(len(moon_altitudes) - 1):
+    # IF TIME AFTER NOISE START AND BEFORE START TIME
+    if data_quality_start < sun_times[i] < start_time:
+        # HASH TIME REGION -> \\ = CLOSED DOOR OBS PERIOD
+        ax.axvspan(sun_times[i], sun_times[i + 1], facecolor='none', edgecolor='grey', hatch = 'xx', alpha=0.7, linewidth=0.0)
+for i in range(len(moon_altitudes) - 1):
+    # IF START/END 2 EXIST
+    if not (start_time_2 == None and end_time_2 == None):
+        # IF 2 STARTS AND ENDS
+        if not (end_time == end_time_2 and start_time == start_time_2):
+            # IF TIME B/T START AND END 2
+            if start_time < sun_times[i] < start_time_2:
+                # HASH TIME REGION -> \\ = CLOSED DOOR OBS PERIOD
+                ax.axvspan(sun_times[i], sun_times[i + 1], facecolor='none', edgecolor='grey', hatch = 'xx', alpha=0.7, linewidth=0.0)
+        # IF 2 STARTS 1 END
+        elif not (start_time == start_time_2) and (end_time == end_time_2):
+            # IF TIME B/T START AND START 2
+            if start_time < sun_times[i] < start_time_2:
+                ax.axvspan(sun_times[i], sun_times[i + 1], facecolor='none', edgecolor='grey', hatch = 'xx', alpha=0.7, linewidth=0.0)
+        # IF 2 ENDS 1 START
+        elif (not (end_time == end_time_2)) and (start_time == start_time_2):
+            if end_time_2 < sun_times[i] < end_time:
+                ax.axvspan(sun_times[i], sun_times[i + 1], facecolor='none', edgecolor='grey', hatch = 'xx', alpha=0.7, linewidth=0.0)
+
+
+# # CREATE LEGEND
+# legend_elements_2 = [
+#     Patch(color='white', label = f'Moonphase: {illumination}%'),
+# ]
+
+# IF START/END 2 EXIST
+if not (start_time_2 == None and end_time_2 == None):
+    legend_elements = [
+        Patch(color='blue', alpha = 0.5, label='NGC 1068 Obs. Window'),
+        Patch(color='purple', alpha=0.5, label='TXS 0506 Obs. Window'),
+        Patch(facecolor='darkslateblue', label = f'Extrigs Start: {data_quality_start.strftime("%H:%M")} UTC'),
+        Patch(facecolor='green', label = f'Obs. Start: {start_time.strftime("%H:%M")} UTC'),
+        Patch(facecolor='red', label = f'Obs. End: {end_time.strftime("%H:%M")} UTC'),
+        # PALE LINES
+        Patch(facecolor='green', alpha = 0.5, label = f'Transition: {start_time_2.strftime("%H:%M")} UTC'),
+        Patch(facecolor='red', alpha = 0.5, label = f'Transition: {end_time_2.strftime("%H:%M")} UTC'),
+        # DOOR CLOSED/OPEN OBS PERIODS
+        Patch(facecolor='grey', alpha = 1, label = 'Door Open Obs'),
+        Patch(facecolor='white', alpha = .75, hatch='xx', label = 'Door Closed Obs'),
+        Patch(color='grey', alpha = 0.5, label = 'Moon Position Relative'),
+        Patch(color='orange', alpha=0.5, label = 'Sun Position Relative'),
+        Patch(color='white', label = f'Moonphase: {illumination}%'),
+    ]
+# NO START 2
+else: 
+    legend_elements = [
+        Patch(color='blue', alpha = 0.5, label='NGC 1068 Obs. Window'),
+        Patch(color='purple', alpha=0.5, label='TXS 0506 Obs. Window'),
+        Patch(facecolor='darkslateblue', label = f'Extrigs Start: {data_quality_start.strftime("%H:%M")} UTC'),
+        Patch(facecolor='green', label = f'Obs. Start: {start_time.strftime("%H:%M")} UTC'),
+        Patch(facecolor='red', label = f'Obs. End: {end_time.strftime("%H:%M")} UTC'),
+        # DOOR CLOSED/OPEN OBS PERIODS
+        Patch(facecolor='grey', alpha = 1, label = 'Door Open Obs'),
+        Patch(facecolor='white', alpha = .75, hatch='xx', label = 'Door Closed Obs'),
+        Patch(color='grey', alpha = 0.5, label = 'Moon Position Relative'),
+        Patch(color='orange', alpha=0.5, label = 'Sun Position Relative'),
+        Patch(color='white', label = f'Moonphase: {illumination}%'),
+    ]
+
+# Adding legend with custom legend entrie
+legend = ax.legend(fontsize=8, loc='lower right',handles=legend_elements)
+legend.get_frame().set_facecolor('white')
+legend.get_frame().set_alpha(0.8)
+
+# legend_2 = plt.legend(fontsize=8, loc='upper right',handles=legend_elements_2)
+# legend_2.get_frame().set_facecolor('white')
+# legend_2.get_frame().set_alpha(0.8)
+
+ax.add_artist(legend)
 
 
 if illumination >= 90:
-
-    '''
-    text3 = ax.text(0.78, -0.1, 'Moon Phase = ' + str(illumination) + '%', color='red', fontsize=8, ha='left', va='top', transform=ax.transAxes, bbox=dict(facecolor='white', alpha=1, edgecolor='grey'))
-    for i in range(len(moon_altitudes) - 1):
-        if not (sun_times[i] in time_list):
-            ax.axvspan(sun_times[i], sun_times[i + 1], color='grey', alpha=0.05)
-    '''
-
-    legend_elements = [
-    Patch(color='blue', alpha = 0.5, label='NGC 1068 Obs. Window'),
-    Patch(color='purple', alpha=0.5, label='TXS 0506+056 Obs. Window'),
-    Patch(facecolor='darkslateblue', label = f'Data Qual. Extrigs Start Time: {data_quality_start.strftime("%H:%M")} UTC'),
-    Patch(facecolor='green', label = f'Obs. Extrigs Start Time: {start_time.strftime("%H:%M")} UTC'),
-    Patch(facecolor='red', label = f'Obs. Extrigs End Time: {end_time.strftime("%H:%M")} UTC'),
-    Patch(color='grey', alpha = 0.5, label = 'Moon Position Relative'),
-    Patch(color='orange', alpha=0.5, label = 'Sun Position Relative'),
-    Patch(color='white', label = f'Moonphase: {illumination}%')
-    ]
-
-
-    legend = ax.legend(fontsize=8, loc='lower right',handles=legend_elements)
-    legend.get_frame().set_facecolor('white')
-    legend.get_frame().set_alpha(1)
-
+    # MAKE MOONPHASE LABEL IN LEGEND RED
     for text in legend.get_texts():
         label = text.get_text()
         if 'Moonphase' in label:
             text.set_color('red')
-
-else:
-    #text3 = ax.text(0.784, 0.06, 'Moon Phase = ' + str(illumination) + '%', color='black', fontsize=8, ha='left', va='top', transform=ax.transAxes, bbox=dict(facecolor='white', alpha=1, edgecolor='grey'))
-    #text4 = ax.text(0.784, 0.1795, 'Trinity Start Time', color='green', fontsize=8, ha='left', va='top', transform=ax.transAxes, bbox=dict(facecolor='white', alpha=1, edgecolor='grey'))
-    #text5 = ax.text(0.784, 0.12, 'Trinity End Time', color='Red', fontsize=8, ha='left', va='top', transform=ax.transAxes, bbox=dict(facecolor='white', alpha=1, edgecolor='grey'))
-    plt.axvline(x=start_time, color='green', linestyle='--', linewidth=2, alpha=1)
-    plt.axvline(x=end_time, color='red', linestyle='--', linewidth=2, alpha=1)
-    plt.axvline(x=data_quality_start, color='darkslateblue', linestyle='--', linewidth=1, alpha=1)
-
-
-
-#    if not (start_time_2 == None and end_time_2 == None):
-#        plt.axvline(x=start_time_2, color='green', linestyle='--', linewidth=2, alpha=0.5)
-#        plt.axvline(x=end_time_2, color='red', linestyle='--', linewidth=2, alpha=0.5)
-
-
-    for i in range(len(moon_altitudes) - 1):
-        if not (sun_times[i] in time_list):
-            ax.axvspan(sun_times[i], sun_times[i + 1], color='grey', alpha=0.05)
-
-#Adding custom legend entries
-    legend_elements = [
-         Patch(color='blue', alpha = 0.5, label='NGC 1068 Obs. Window'),
-         Patch(color='purple', alpha=0.5, label='TXS 0506+056 Obs. Window'),
-         Patch(facecolor='darkslateblue', label = f'Extrigs Start Time: {data_quality_start.strftime("%H:%M")} UTC'),
-         Patch(facecolor='green', label = f'Obs. Start Time: {start_time.strftime("%H:%M")} UTC'),
-         Patch(facecolor='red', label = f'Obs. End Time: {end_time.strftime("%H:%M")} UTC'),
-         Patch(color='grey', alpha = 0.5, label = 'Moon Position Relative'),
-         Patch(color='orange', alpha=0.5, label = 'Sun Position Relative'),
-         Patch(color='white', label = f'Moonphase: {illumination}%'),
-
-    ]
-
-
-# Adding legend with custom legend entries
-#plt.legend(handles=legend_elements)
-    legend = ax.legend(fontsize=8, loc='lower right',handles=legend_elements)
-    legend.get_frame().set_facecolor('white')
-    legend.get_frame().set_alpha(1)
-
-
 
 
 os.chdir('/data/TrinityLabComputer/scheduling/')
