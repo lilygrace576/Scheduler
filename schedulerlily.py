@@ -213,7 +213,7 @@ if start_time == (time_of_sunset_crit) and end_time == time_of_max_altitude: #st
         for i in range(len(moon_altitudes) - 1):
             if end_time_2 < sun_times[i] < end_time:
                 # SHADE TIME REGION -> SHADED = CLOSED DOOR OBS PERIOD
-                ax.axvspan(sun_times[i], sun_times[i + 1], facecolor='white', alpha=0.25, hatch = 'xx')
+                ax.axvspan(sun_times[i], sun_times[i + 1], facecolor='none', edgecolor='grey', hatch = 'xx', alpha=0.7, linewidth=0.0)
 
 # IF START AT SUNSET CRIT AND END AT SUNSRISE CRIT
 elif start_time == (time_of_sunset_crit) and end_time == time_of_sunrise_crit:
